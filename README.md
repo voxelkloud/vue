@@ -1,6 +1,6 @@
 # @voxelkloud/vue
 
-Vue 3 bindings for [voxelkloud](https://github.com/voxelkloud/voxelkloud).
+Vue 3 bindings for [voxelkloud](../../README.md).
 
 ```sh
 npm install @voxelkloud/vue three
@@ -14,14 +14,14 @@ import { PointCloudViewer } from "@voxelkloud/vue";
 <template>
   <PointCloudViewer
     url="https://example.com/clouds/autzen/"
-    :lod="{ targetPixelSpacing: 1.0 }"
+    :lod="{ targetScreenError: 1.0 }"
     @stats="(s) => console.log(s.frameMs)"
   />
 </template>
 ```
 
-The same surface as [@voxelkloud/react](https://github.com/voxelkloud/react), over the same
-[@voxelkloud/view](https://github.com/voxelkloud/view). That symmetry is enforced by a test:
+The same surface as [@voxelkloud/react](../react/README.md), over the same
+[@voxelkloud/view](../view/README.md). That symmetry is enforced by a test:
 every prop here must exist on the React binding, because the two adapters are
 the evidence that the renderer is framework-free.
 

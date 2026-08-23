@@ -1,9 +1,14 @@
+// UNPINNED. These bindings used to force `format: "potree-v2"` because the
+// renderer decoded node payloads through that driver and nothing else would
+// have worked. `PointReader` removed that constraint, so the URL now decides:
+// whichever driver the application registered and the URL matches.
 import type {
-  BrotliDecompress,
-  PointCloudHierarchy,
-  PointCloudSource,
-} from "@voxelkloud/loader";
-import { loadHierarchy, loadPointCloudSource } from "@voxelkloud/loader";
+  NodeDecompress,
+  PointCloudSourceBase,
+  PointCloudTreeBase,
+  PointReaderFactory,
+} from "@voxelkloud/core";
+import { loadPointCloud } from "@voxelkloud/loader";
 import { onScopeDispose, shallowRef, toValue, watch } from "vue";
 import type { MaybeRefOrGetter, ShallowRef } from "vue";
 
@@ -13,8 +18,10 @@ export type PointCloudStatus =
   | { readonly kind: "loading"; readonly stage: "manifest" | "hierarchy" }
   | {
       readonly kind: "ready";
-      readonly source: PointCloudSource;
-      readonly hierarchy: PointCloudHierarchy;
+      readonly source: PointCloudSourceBase;
+      readonly hierarchy: PointCloudTreeBase;
+      /** Opens a reader for this cloud's node payloads. Pass it to `addCloud`. */
+      readonly openPoints: PointReaderFactory;
     }
   | { readonly kind: "error"; readonly error: unknown };
 
@@ -29,14 +36,15 @@ export interface UsePointCloudOptions {
    */
   readonly expandAll?: boolean;
   /**
-   * A brotli decompressor, needed for BROTLI clouds because no browser exposes
-   * one to JS. Ignored for uncompressed clouds.
+   * A whole-payload decompressor, needed for a BROTLI Potree cloud or a
+   * zstandard EPT one because no browser exposes either codec to JS. Ignored by
+   * a driver that needs none.
    *
    * ```ts
    * const { brotliDecompress } = await import("@voxelkloud/loader/brotli");
    * ```
    */
-  readonly decompress?: BrotliDecompress;
+  readonly decompress?: NodeDecompress;
 }
 
 /**
@@ -56,7 +64,7 @@ export function usePointCloud(
   url: MaybeRefOrGetter<string | undefined>,
   options: UsePointCloudOptions = {},
 ): ShallowRef<PointCloudStatus> {
-  // `shallowRef`, not `ref`: `PointCloudSource` and `PointCloudHierarchy` carry
+  // `shallowRef`, not `ref`: the source and the tree carry
   // large typed arrays, a transport with functions on it, and a node graph with
   // parent links. Deep reactivity would walk all of it on every assignment and
   // wrap the arrays in proxies that the renderer then hands to the GPU.
@@ -81,21 +89,28 @@ export function usePointCloud(
       void (async () => {
         try {
           status.value = { kind: "loading", stage: "manifest" };
-          const source = await loadPointCloudSource(resolved, {
+          // One call: identify the format, load the source AND open the tree.
+          // Splitting it would put the format switch back in this composable —
+          // knowing which driver won is exactly what the registry removes.
+          const {
+            source,
+            tree: hierarchy,
+            openPoints,
+          } = await loadPointCloud(resolved, {
             signal: ac.signal,
+            ...(options.decompress !== undefined
+              ? { points: { decompress: options.decompress } }
+              : {}),
           });
           if (mine !== generation) return;
-
           status.value = { kind: "loading", stage: "hierarchy" };
-          const hierarchy = await loadHierarchy(source, { signal: ac.signal });
-          if (mine !== generation) return;
 
           if (options.expandAll !== false) await hierarchy.expandAll();
           if (mine !== generation) {
             hierarchy.dispose();
             return;
           }
-          status.value = { kind: "ready", source, hierarchy };
+          status.value = { kind: "ready", source, hierarchy, openPoints };
         } catch (error) {
           if (mine !== generation) return;
           status.value = { kind: "error", error };

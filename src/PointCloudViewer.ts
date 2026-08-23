@@ -1,4 +1,4 @@
-import type { BrotliDecompress } from "@voxelkloud/loader";
+import type { BrotliDecompress } from "@voxelkloud/format-potree";
 import { createPointCloudView } from "@voxelkloud/view";
 import type {
   ColorMode,
@@ -38,7 +38,7 @@ export const PointCloudViewer = defineComponent({
   props: {
     /** Directory URL or `metadata.json` URL. Both are accepted. */
     url: { type: String, required: true },
-    /** LOD policy. `targetPixelSpacing` is the primary quality control. */
+    /** LOD policy. `targetScreenError` is the primary quality control. */
     lod: { type: Object as PropType<LodOptions>, default: undefined },
     /**
      * Colour mode. Defaults to the cloud's own RGB when it has any, and to an
@@ -133,7 +133,7 @@ export const PointCloudViewer = defineComponent({
           return;
         }
         viewRef.value = view;
-        view.addCloud(status.source, status.hierarchy);
+        view.addCloud(status.source, status.hierarchy, status.openPoints);
         view.frameCloud(0);
 
         const resize = () => {
@@ -195,10 +195,13 @@ export const PointCloudViewer = defineComponent({
       { immediate: true, flush: "post" },
     );
 
+    // The deprecated alias is watched too, so a caller still passing
+    // `targetPixelSpacing` keeps a LIVE knob. Resolution order matches
+    // `resolveLodOptions`.
     watch(
-      () => props.lod?.targetPixelSpacing,
+      () => props.lod?.targetScreenError ?? props.lod?.targetPixelSpacing,
       (v) => {
-        if (v !== undefined) viewRef.value?.setTargetPixelSpacing(v);
+        if (v !== undefined) viewRef.value?.setTargetScreenError(v);
       },
     );
     watch(
