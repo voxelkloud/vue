@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PointCloudViewer } from "./PointCloudViewer.js";
 import { usePointCloud } from "./use-point-cloud.js";
@@ -28,7 +28,13 @@ describe("@voxelkloud/vue module contract", () => {
     ]);
   });
 
-  it("mirrors the React binding's props", async () => {
+  // A WORKSPACE test, and it can only be one. It reads the React binding's
+  // source off disk, which exists next to this package in the development
+  // workspace and nowhere else — a CI checkout of this repo alone does not have
+  // it. Vendoring a copy would be worse than skipping: the copy would go stale
+  // and the test would keep passing while the invariant it guards broke.
+  const REACT_SRC = new URL("../../react/src/PointCloudViewer.tsx", import.meta.url).pathname;
+  it.skipIf(!existsSync(REACT_SRC))("mirrors the React binding's props", async () => {
     // The two adapters exist to prove `@voxelkloud/view` is framework-free. A
     // prop present on one and missing on the other means something leaked into
     // an adapter that belonged below it.
@@ -36,7 +42,7 @@ describe("@voxelkloud/vue module contract", () => {
       (PointCloudViewer as unknown as { props: Record<string, unknown> }).props,
     ).sort();
     const react = readFileSync(
-      new URL("../../react/src/PointCloudViewer.tsx", import.meta.url).pathname,
+      REACT_SRC,
       "utf8",
     );
     for (const p of props) {
