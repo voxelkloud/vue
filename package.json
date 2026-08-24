@@ -1,6 +1,6 @@
 {
   "name": "@voxelkloud/vue",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vue bindings for voxelkloud: <PointCloudViewer/> component and composables wrapping @voxelkloud/view.",
   "license": "MIT",
   "keywords": [
